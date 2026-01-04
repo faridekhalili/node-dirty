@@ -15,7 +15,7 @@ describe('Dirty - _load method', () => {
     mockFs.restore();
   });
 
-  it('should emit "drain" when queue is empty and _inFlightWrites is 0', done => {
+  it('emits "drain" when the queue is empty and in-flight writes reach 0', (done) => {
 
     /**
      *  Mutation sample 1:
@@ -31,41 +31,23 @@ describe('Dirty - _load method', () => {
      * +           if (this._inFlightWrites < 0) this.emit('drain');",
     */
 
-    // Set up the mock file system with an empty db file.
-    mockFs({
-      [testDir]: {
-        'test.db': ''
-      }
-    });
-
-    // Instantiate Dirty with the test file.
+    mockFs({ [testDir]: { 'test.db': '' } });
     const dirty = new Dirty(testFile);
 
-    // Wait until the db has loaded so that the streams are ready.
     dirty.once('load', () => {
-      // Override _writeStream.write to simulate backpressure.
-      // The write returns false (which sets _waitForDrain = true) and
-      // asynchronously calls the callback, decrementing _inFlightWrites.
-      dirty._writeStream.write = function (data, callback) {
-        process.nextTick(callback);
+      // Force backpressure: write returns false and completes on next tick.
+      dirty._writeStream.write = function (data, cb) {
+        process.nextTick(cb);
         return false;
       };
 
-      // Listen for the 'drain' event on the Dirty instance.
-      dirty.once('drain', () => {
-        // Assertion: the 'drain' event has been emitted.
-        expect(true).toBe(true);
-        done();
-      });
+      dirty.once('drain', () => done());
 
-      // Trigger a write operation.
       dirty.set('testKey', { test: 'value' });
 
-      // Allow the write callback to run and then simulate the stream's drain event.
+      // Let the write callback run, then emit the stream drain.
       process.nextTick(() => {
-        process.nextTick(() => {
-          dirty._writeStream.emit('drain');
-        });
+        process.nextTick(() => dirty._writeStream.emit('drain'));
       });
     });
   });
