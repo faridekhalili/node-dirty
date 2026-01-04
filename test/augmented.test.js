@@ -4,16 +4,11 @@ const mockFs = require('mock-fs');
 const path = require('path');
 const assert = require('assert');
 
-describe('Dirty - _load method', () => {
-
-  // Define a temporary directory and file path for testing.
+describe('Dirty - _load/_drain behavior', () => {
   const testDir = path.join(__dirname, 'tempDir');
   const testFile = path.join(testDir, 'test.db');
 
-  afterEach(() => {
-    // Restore the real file system after each test.
-    mockFs.restore();
-  });
+  afterEach(() => mockFs.restore());
 
   it('emits "drain" when the queue is empty and in-flight writes reach 0', (done) => {
 
