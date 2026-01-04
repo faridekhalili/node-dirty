@@ -88,6 +88,46 @@ describe('Dirty - _load/_drain behavior', () => {
     });
   });
 
+  it('should emit an error for corrupted rows without a key', (done) => {
+
+    /**
+     * * Sample 5:
+     * lib/dirty/dirty.js:138:25
+     * -         this.emit('error', new Error(`Could not load corrupted row: ${rowStr}`));
+     * +         this.emit('', new Error(`Could not load corrupted row: ${rowStr}`));
+     */
+
+    const corruptedRow = JSON.stringify({ val: 'value1' }); // Missing "key" triggers corruption
+    const data = `${corruptedRow}\n`;
+
+    mockFs({
+      [testDir]: {
+        'test.db': data,
+      },
+    });
+
+    const dirty = new Dirty(testFile);
+
+    let errorEmitted = false;
+    const timeout = setTimeout(() => done(new Error('Expected error event for corrupted row')), 200);
+
+    dirty.on('error', (err) => {
+      if (err && err.message.includes(`Could not load corrupted row: ${corruptedRow}`)) {
+        errorEmitted = true;
+      }
+    });
+
+    dirty.on('load', () => {
+      clearTimeout(timeout);
+      if (errorEmitted) {
+        done();
+      } else {
+        done(new Error('Expected error for corrupted row was not emitted'));
+      }
+    });
+  });
+
+
   it('should emit error event with message "Empty lines never appear in a healthy database" when an empty line is encountered', done => {
       
     /**
